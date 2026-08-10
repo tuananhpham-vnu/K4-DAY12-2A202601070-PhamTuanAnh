@@ -1,0 +1,66 @@
+# ═══════════════════════════════════════════════════════════════════
+# BONUS — CI/CD với GitHub Actions
+#
+# Mỗi lần push/PR: chạy test trên máy sạch, build thử Docker image; chỉ khi
+# cả hai xanh VÀ đang ở nhánh main lúc push thật (không phải PR) mới deploy.
+#
+# Kiểm tra: pytest tests/test_bonus_cicd.py -v
+# ═══════════════════════════════════════════════════════════════════
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # pull_request quan trọng không kém push: nó bắt lỗi TRƯỚC khi code vào
+  # nhánh chính, thay vì phát hiện sau khi đã merge.
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run checkpoint tests
+        env:
+          # Settings bắt buộc có API_TOKEN (fail fast) nhưng máy CI không có
+          # .env — truyền giá trị giả qua biến môi trường của step.
+          API_TOKEN: ci-dummy
+          REDIS_URL: "fake://"
+        run: >
+          pytest tests/
+          --ignore=tests/test_cp5.py
+          --ignore=tests/test_bonus_cicd.py
+          -v
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t day12-chat:ci .
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Trigger Render deploy hook
+        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+
+      - name: Smoke test
+        env:
+          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+        run: |
+          sleep 45
+          curl -fsS "$PUBLIC_URL/healthz"
