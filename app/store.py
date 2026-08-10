@@ -51,7 +51,12 @@ class ChatStore:
         Trả ``True`` nếu thành công, ``False`` nếu có bất kỳ Exception nào
         (mất mạng, sai mật khẩu, Redis chưa khởi động...).
         """
-        raise NotImplementedError("TODO (CP4): cài đặt ping")
+        # raise NotImplementedError("TODO (CP4): cài đặt ping")
+        try:
+            self.client.ping()
+            return True
+        except Exception:
+            return False
 
     def add_turn(self, client_id: str, role: str, content: str) -> None:
         """Ghi thêm một lượt vào lịch sử.
@@ -65,7 +70,10 @@ class ChatStore:
           3. ``self.client.expire(key, HISTORY_TTL_SECONDS)`` — hội thoại cũ
              tự hết hạn, khỏi phải dọn tay.
         """
-        raise NotImplementedError("TODO (CP4): cài đặt add_turn")
+        # raise NotImplementedError("TODO (CP4): cài đặt add_turn")
+        self.client.rpush(key := self._key(client_id), json.dumps({"role": role, "content": content}, ensure_ascii=False))
+        self.client.ltrim(key, -HISTORY_MAX_MESSAGES, -1)
+        self.client.expire(key, HISTORY_TTL_SECONDS)
 
     def history(self, client_id: str) -> list[dict]:
         """Đọc lịch sử hội thoại, cũ nhất trước.
@@ -73,8 +81,19 @@ class ChatStore:
         TODO (CP4): ``self.client.lrange(key, 0, -1)`` rồi ``json.loads``
         từng phần tử. Chưa có gì → trả về list rỗng.
         """
-        raise NotImplementedError("TODO (CP4): cài đặt history")
+        # raise NotImplementedError("TODO (CP4): cài đặt history")
+        return [json.loads(item) for item in self.client.lrange(self._key(client_id), 0, -1)]
 
     def reset(self, client_id: str) -> None:
         """CHO SẴN — xóa lịch sử của một client."""
         self.client.delete(self._key(client_id))
+        
+    def append_message(r: redis.Redis, user_id: str, role: str, content: str):
+        key = f"history:{user_id}"
+        message = json.dumps({"role": role, "content": content})
+        r.rpush(key, message)
+    
+    def get_history(r: redis.Redis, user_id: str) -> list:
+        key = f"history:{user_id}"
+        return [json.loads(m) for m in r.lrange(key, 0, -1)]
+
