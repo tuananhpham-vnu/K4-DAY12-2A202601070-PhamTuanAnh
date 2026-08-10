@@ -33,6 +33,20 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+  chat: 
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    environment:
+      API_TOKEN: ${API_TOKEN}              # đọc từ .env, KHÔNG viết thẳng token
+      REDIS_URL: redis://redis:6379/0   
 
   # TODO (CP2): khai báo service `chat` ở đây
   # chat:
@@ -41,3 +55,4 @@ services:
 
 volumes:
   redis-data:
+
