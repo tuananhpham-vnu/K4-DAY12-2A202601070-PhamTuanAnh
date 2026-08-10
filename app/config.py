@@ -8,6 +8,7 @@ mà không phải sửa một dòng code nào.
 from __future__ import annotations
 
 from functools import lru_cache
+import os
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -40,6 +41,13 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+    port: int = 8000
+    api_token: str
+    redis_url: str = "redis://localhost:6379/0"
+    bucket_capacity: int = 10
+    refill_per_minute: int = 10
+    daily_budget_usd: float = 1.0
+    log_level: str = "INFO"
 
     # TODO (CP1): khai báo 7 trường theo bảng trên, ví dụ:
     #     port: int = 8000
